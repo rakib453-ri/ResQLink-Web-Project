@@ -1,0 +1,17 @@
+<?php
+require_once __DIR__ . "/../includes/auth.php"; require_role("seeker");
+require_once __DIR__ . "/../config/database.php";
+$uid=$_SESSION["user_id"];$edit=null;
+if(isset($_GET["delete"])){$id=(int)$_GET["delete"];$s=$conn->prepare("DELETE FROM family_members WHERE id=? AND seeker_user_id=?");$s->bind_param("ii",$id,$uid);$s->execute();flash("success","Family member removed.");header("Location: family.php");exit;}
+if(isset($_GET["edit"])){$id=(int)$_GET["edit"];$s=$conn->prepare("SELECT * FROM family_members WHERE id=? AND seeker_user_id=?");$s->bind_param("ii",$id,$uid);$s->execute();$edit=$s->get_result()->fetch_assoc();}
+if($_SERVER["REQUEST_METHOD"]==="POST"){$id=(int)($_POST["id"]??0);$name=trim($_POST["name"]??"");$age=(int)($_POST["age"]??0);$rel=trim($_POST["relationship"]??"");$gender=trim($_POST["gender"]??"");$needs=trim($_POST["special_needs"]??"");
+if($name&&$age>=0&&$rel){if($id){$s=$conn->prepare("UPDATE family_members SET name=?,age=?,relationship=?,gender=?,special_needs=? WHERE id=? AND seeker_user_id=?");$s->bind_param("sisssii",$name,$age,$rel,$gender,$needs,$id,$uid);}else{$s=$conn->prepare("INSERT INTO family_members(seeker_user_id,name,age,relationship,gender,special_needs) VALUES(?,?,?,?,?,?)");$s->bind_param("isisss",$uid,$name,$age,$rel,$gender,$needs);}$s->execute();flash("success",$id?"Family member updated.":"Family member added.");header("Location: family.php");exit;}}
+$s=$conn->prepare("SELECT * FROM family_members WHERE seeker_user_id=? ORDER BY id DESC");$s->bind_param("i",$uid);$s->execute();$rows=$s->get_result();
+$pageTitle="Family Members";include __DIR__ . "/../includes/header.php";?>
+<div class="layout"><?php include __DIR__ . "/../includes/sidebar.php";?><section class="content"><h2>Family / Dependent Management</h2><?php show_flash();?>
+<div class="section"><h3><?=$edit?"Edit Family Member":"Add Family Member"?></h3><form method="post" class="form-grid"><input type="hidden" name="id" value="<?=e($edit['id']??'')?>">
+<div class="form-group"><label>Name</label><input name="name" required value="<?=e($edit['name']??'')?>"></div><div class="form-group"><label>Age</label><input type="number" min="0" name="age" required value="<?=e($edit['age']??'')?>"></div>
+<div class="form-group"><label>Relationship</label><input name="relationship" required value="<?=e($edit['relationship']??'')?>"></div><div class="form-group"><label>Gender</label><select name="gender"><option value="">Select</option><?php foreach(['Male','Female','Other'] as $x):?><option <?=($edit['gender']??'')===$x?'selected':''?>><?=$x?></option><?php endforeach;?></select></div>
+<div class="form-group full"><label>Special Needs</label><input name="special_needs" value="<?=e($edit['special_needs']??'')?>"></div><div class="form-group full"><button class="btn"><?=$edit?"Update":"Add"?></button></div></form></div>
+<div class="table-wrap"><table><tr><th>Name</th><th>Age</th><th>Relationship</th><th>Gender</th><th>Special Needs</th><th>Actions</th></tr><?php while($r=$rows->fetch_assoc()):?><tr><td><?=e($r['name'])?></td><td><?=$r['age']?></td><td><?=e($r['relationship'])?></td><td><?=e($r['gender'])?></td><td><?=e($r['special_needs'])?></td><td class="actions"><a class="btn small" href="?edit=<?=$r['id']?>">Edit</a><a class="btn small danger" data-confirm="Remove this family member?" href="?delete=<?=$r['id']?>">Delete</a></td></tr><?php endwhile;?></table></div>
+</section></div><?php include __DIR__ . "/../includes/footer.php";?>
